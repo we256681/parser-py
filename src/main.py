@@ -19,6 +19,11 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 
+# В окружениях без графической подсистемы запуск Tkinter невозможен.
+if not os.environ.get("DISPLAY"):
+    print("DISPLAY environment variable is not set. GUI cannot be started.")
+    raise SystemExit(1)
+
 # Попытка импорта chromedriver_binary для автоматического управления драйвером
 try:
     import chromedriver_binary
