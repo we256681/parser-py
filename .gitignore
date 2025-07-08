@@ -6,3 +6,4 @@ __pycache__/
 *.log
 cookies/
 downloads/
+node_modules
