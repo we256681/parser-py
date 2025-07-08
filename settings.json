@@ -1,0 +1,8 @@
+{
+    "CHROMEDRIVER_PATH": "path/to/chromedriver",
+    "START_URL": "http://example.com",
+    "COOKIES_PATH": "cookies/cookies.json",
+    "DOWNLOAD_FOLDER": "downloads",
+    "MAX_WORKERS": 4,
+    "FILE_EXTENSIONS": [".docx", ".pdf", ".xlsx"]
+}
