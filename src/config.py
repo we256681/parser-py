@@ -1,9 +1,8 @@
-# config.py (будет использоваться для загрузки настроек)
+# config.py
 
 import json
 import os
 
-# Путь к файлу настроек
 SETTINGS_FILE = "settings.json"
 
 # Функция для загрузки настроек из файла
@@ -28,3 +27,8 @@ COOKIES_PATH = settings.get("COOKIES_PATH", "cookies/cookies.json")
 DOWNLOAD_FOLDER = settings.get("DOWNLOAD_FOLDER", "downloads")
 MAX_WORKERS = settings.get("MAX_WORKERS", 4)
 FILE_EXTENSIONS = settings.get("FILE_EXTENSIONS", ['.docx', '.pdf', '.xlsx'])
+LOGIN = settings.get("LOGIN", "")  # Логин для авторизации
+PASSWORD = settings.get("PASSWORD", "")  # Пароль для авторизации
+DELAY = settings.get("DELAY", 2)  # Задержка между переходами по ссылкам
+MODE = settings.get("MODE", "sequential")  # Режим работы: "sequential" или "parallel"
+
