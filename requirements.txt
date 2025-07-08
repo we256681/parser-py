@@ -2,3 +2,4 @@ selenium==4.15.2
 chromedriver-binary==140.0.7282.0.0
 webdriver-manager==4.0.1
 
+

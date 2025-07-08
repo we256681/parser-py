@@ -48,6 +48,19 @@ def log_message(message):
         log_text.yview(tk.END)  # Прокручиваем текстовый блок вниз
     print(message)  # Дублируем в консоль
 
+def find_word_download_button(driver):
+    """Поиск кнопки скачивания файла Word"""
+    try:
+        candidates = driver.find_elements(By.XPATH, "//button|//a")
+        for elem in candidates:
+            text = (elem.text or "").lower()
+            href = (elem.get_attribute("href") or "").lower()
+            if "word" in text or "doc" in text or href.endswith(".doc") or href.endswith(".docx") or ".docx" in href:
+                return elem
+    except Exception as e:
+        log_message(f"Ошибка при поиске кнопки Word: {e}")
+    return None
+
 def get_chrome_driver():
     """Функция для создания Chrome WebDriver с правильными настройками"""
     chrome_options = Options()
@@ -349,24 +362,31 @@ def start_download_task():
         # Авторизация
         check_and_login(driver, LOGIN, PASSWORD)
         
-        # Здесь добавьте вашу логику парсинга и скачивания
         log_message("Начинаем парсинг страницы...")
-        
-        # Пример базового парсинга
+
+        word_btn = find_word_download_button(driver)
+        if word_btn:
+            log_message("Найдена кнопка скачивания Word")
+            try:
+                word_btn.click()
+                time.sleep(DELAY)
+            except Exception as e:
+                log_message(f"Не удалось нажать кнопку Word: {e}")
+        else:
+            log_message("Кнопка Word не найдена, ищем ссылки c расширениями")
+
         links = driver.find_elements(By.TAG_NAME, "a")
         log_message(f"Найдено {len(links)} ссылок на странице")
-        
-        # Фильтруем ссылки по расширениям файлов
+
         download_links = []
         for link in links:
             href = link.get_attribute("href")
             if href and any(ext in href.lower() for ext in FILE_EXTENSIONS):
                 download_links.append(href)
-        
+
         log_message(f"Найдено {len(download_links)} ссылок для скачивания")
-        
-        # Здесь можно добавить логику скачивания файлов
-        for i, link in enumerate(download_links[:5]):  # Ограничиваем для примера
+
+        for i, link in enumerate(download_links[:5]):
             log_message(f"Обрабатываем ссылку {i+1}/{len(download_links)}: {link}")
             time.sleep(DELAY)
         
@@ -419,6 +439,19 @@ def run_headless():
         check_and_login(driver, LOGIN, PASSWORD)
 
         log_message("Начинаем парсинг страницы...")
+
+
+        word_btn = find_word_download_button(driver)
+        if word_btn:
+            log_message("Найдена кнопка скачивания Word")
+            try:
+                word_btn.click()
+                time.sleep(DELAY)
+            except Exception as e:
+                log_message(f"Не удалось нажать кнопку Word: {e}")
+        else:
+            log_message("Кнопка Word не найдена, ищем ссылки c расширениями")
+
         links = driver.find_elements(By.TAG_NAME, "a")
         log_message(f"Найдено {len(links)} ссылок на странице")
 
