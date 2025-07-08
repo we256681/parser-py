@@ -4,7 +4,6 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext
 from settings_manager import save_settings, load_settings, load_settings_by_name
 from config import CHROMEDRIVER_PATH, START_URL, COOKIES_PATH, DOWNLOAD_FOLDER, MAX_WORKERS, FILE_EXTENSIONS, LOGIN, PASSWORD, DELAY, MODE
-import chromedriver_binary  # автоматом добавит путь chromedriver в PATH
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -19,24 +18,48 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 
-# Попытка импорта chromedriver_binary для автоматического управления драйвером
-try:
-    import chromedriver_binary
-    CHROMEDRIVER_AUTO_INSTALL = True
-    print("ChromeDriver будет использован из chromedriver_binary")
-except ImportError:
-    CHROMEDRIVER_AUTO_INSTALL = False
-    print("chromedriver_binary не найден, используется ручной путь")
+# Определяем, есть ли графическая подсистема
+HEADLESS = False
+if not os.environ.get("DISPLAY"):
+    print("DISPLAY environment variable is not set. Running in headless mode.")
+    HEADLESS = True
+
+class DummyVar:
+    """Замена для tkinter.StringVar в headless-режиме"""
+    def __init__(self, value=""):
+        self.value = value
+
+    def get(self):
+        return self.value
+
+    def set(self, value):
+        self.value = value
+
+# По умолчанию полагаемся на Selenium Manager для загрузки ChromeDriver
+CHROMEDRIVER_AUTO_INSTALL = False
 
 # Настройка логирования для отображения логов в интерфейсе
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s')
 
 def log_message(message):
     """Функция для вывода сообщения в интерфейс"""
-    if 'log_text' in globals():
+    if not HEADLESS and 'log_text' in globals():
         log_text.insert(tk.END, message + '\n')
         log_text.yview(tk.END)  # Прокручиваем текстовый блок вниз
     print(message)  # Дублируем в консоль
+
+def find_word_download_button(driver):
+    """Поиск кнопки скачивания файла Word"""
+    try:
+        candidates = driver.find_elements(By.XPATH, "//button|//a")
+        for elem in candidates:
+            text = (elem.text or "").lower()
+            href = (elem.get_attribute("href") or "").lower()
+            if "word" in text or "doc" in text or href.endswith(".doc") or href.endswith(".docx") or ".docx" in href:
+                return elem
+    except Exception as e:
+        log_message(f"Ошибка при поиске кнопки Word: {e}")
+    return None
 
 def get_chrome_driver():
     """Функция для создания Chrome WebDriver с правильными настройками"""
@@ -70,26 +93,24 @@ def get_chrome_driver():
     chrome_options.add_experimental_option("prefs", prefs)
     
     try:
+        chromedriver_path = CHROMEDRIVER_PATH
         if CHROMEDRIVER_AUTO_INSTALL:
-            # Используем chromedriver_binary для автоматического управления
             log_message("Используется chromedriver_binary для автоматического управления драйвером")
             driver = webdriver.Chrome(options=chrome_options)
         else:
-            # Используем ручной путь к chromedriver
-            chromedriver_path = CHROMEDRIVER_PATH
-            if not os.path.exists(chromedriver_path):
-                log_message(f"ChromeDriver не найден по пути: {chromedriver_path}")
-                # Попытаемся найти chromedriver в системе
+            if os.path.exists(chromedriver_path):
+                service = Service(chromedriver_path)
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+            else:
                 import shutil
                 system_chromedriver = shutil.which('chromedriver')
                 if system_chromedriver:
-                    chromedriver_path = system_chromedriver
-                    log_message(f"Найден системный chromedriver: {chromedriver_path}")
+                    log_message(f"Найден системный chromedriver: {system_chromedriver}")
+                    service = Service(system_chromedriver)
+                    driver = webdriver.Chrome(service=service, options=chrome_options)
                 else:
-                    raise FileNotFoundError("ChromeDriver не найден в системе")
-            
-            service = Service(chromedriver_path)
-            driver = webdriver.Chrome(service=service, options=chrome_options)
+                    log_message("Используется Selenium Manager для загрузки ChromeDriver")
+                    driver = webdriver.Chrome(options=chrome_options)
         
         log_message("ChromeDriver успешно инициализирован")
         return driver
@@ -101,7 +122,8 @@ def get_chrome_driver():
         try:
             # Попытка использования webdriver-manager как fallback
             from webdriver_manager.chrome import ChromeDriverManager
-            service = Service(ChromeDriverManager().install())
+            from webdriver_manager.core.os_manager import ChromeType
+            service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
             driver = webdriver.Chrome(service=service, options=chrome_options)
             log_message("ChromeDriver успешно инициализирован через webdriver-manager")
             return driver
@@ -340,24 +362,31 @@ def start_download_task():
         # Авторизация
         check_and_login(driver, LOGIN, PASSWORD)
         
-        # Здесь добавьте вашу логику парсинга и скачивания
         log_message("Начинаем парсинг страницы...")
-        
-        # Пример базового парсинга
+
+        word_btn = find_word_download_button(driver)
+        if word_btn:
+            log_message("Найдена кнопка скачивания Word")
+            try:
+                word_btn.click()
+                time.sleep(DELAY)
+            except Exception as e:
+                log_message(f"Не удалось нажать кнопку Word: {e}")
+        else:
+            log_message("Кнопка Word не найдена, ищем ссылки c расширениями")
+
         links = driver.find_elements(By.TAG_NAME, "a")
         log_message(f"Найдено {len(links)} ссылок на странице")
-        
-        # Фильтруем ссылки по расширениям файлов
+
         download_links = []
         for link in links:
             href = link.get_attribute("href")
             if href and any(ext in href.lower() for ext in FILE_EXTENSIONS):
                 download_links.append(href)
-        
+
         log_message(f"Найдено {len(download_links)} ссылок для скачивания")
-        
-        # Здесь можно добавить логику скачивания файлов
-        for i, link in enumerate(download_links[:5]):  # Ограничиваем для примера
+
+        for i, link in enumerate(download_links[:5]):
             log_message(f"Обрабатываем ссылку {i+1}/{len(download_links)}: {link}")
             time.sleep(DELAY)
         
@@ -375,28 +404,106 @@ def start_download_task():
             except:
                 pass
 
-# Создание главного окна
-root = tk.Tk()
-root.title("Настройки скачивания файлов")
-root.geometry("800x900")
+def run_headless():
+    """Запуск программы без графического интерфейса"""
+    global CHROMEDRIVER_PATH, START_URL, COOKIES_PATH, DOWNLOAD_FOLDER, MAX_WORKERS, FILE_EXTENSIONS, LOGIN, PASSWORD, DELAY, MODE
 
-# Текстовый блок для логов
-log_frame = tk.Frame(root)
-log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+    settings = load_settings()
+    if not settings:
+        log_message("Нет сохраненных настроек")
+        return
 
-log_label = tk.Label(log_frame, text="Логи выполнения:")
-log_label.pack(anchor=tk.W)
+    selected_settings = settings[0]
+    log_message(f"Загружены настройки: {selected_settings.get('LOGIN', 'Без логина')}")
 
-log_text = scrolledtext.ScrolledText(log_frame, width=80, height=10, wrap=tk.WORD)
-log_text.pack(fill=tk.BOTH, expand=True)
+    CHROMEDRIVER_PATH = selected_settings.get('CHROMEDRIVER_PATH', CHROMEDRIVER_PATH)
+    START_URL = selected_settings.get('START_URL', START_URL)
+    COOKIES_PATH = selected_settings.get('COOKIES_PATH', COOKIES_PATH)
+    DOWNLOAD_FOLDER = selected_settings.get('DOWNLOAD_FOLDER', DOWNLOAD_FOLDER)
+    MAX_WORKERS = selected_settings.get('MAX_WORKERS', MAX_WORKERS)
+    FILE_EXTENSIONS = selected_settings.get('FILE_EXTENSIONS', FILE_EXTENSIONS)
+    LOGIN = selected_settings.get('LOGIN', LOGIN)
+    PASSWORD = selected_settings.get('PASSWORD', PASSWORD)
+    DELAY = selected_settings.get('DELAY', DELAY)
+    MODE = selected_settings.get('MODE', MODE)
 
-# Форма настроек
-settings_frame = tk.Frame(root)
-settings_frame.pack(fill=tk.X, padx=10, pady=5)
+    if not os.path.exists(DOWNLOAD_FOLDER):
+        os.makedirs(DOWNLOAD_FOLDER)
+
+    global var_browser_mode
+    var_browser_mode = DummyVar("headless")
+
+    driver = None
+    try:
+        driver = get_chrome_driver()
+        check_and_login(driver, LOGIN, PASSWORD)
+
+        log_message("Начинаем парсинг страницы...")
+
+        word_btn = find_word_download_button(driver)
+        if word_btn:
+            log_message("Найдена кнопка скачивания Word")
+            try:
+                word_btn.click()
+                time.sleep(DELAY)
+            except Exception as e:
+                log_message(f"Не удалось нажать кнопку Word: {e}")
+        else:
+            log_message("Кнопка Word не найдена, ищем ссылки c расширениями")
+
+        links = driver.find_elements(By.TAG_NAME, "a")
+        log_message(f"Найдено {len(links)} ссылок на странице")
+
+        download_links = []
+        for link in links:
+            href = link.get_attribute("href")
+            if href and any(ext in href.lower() for ext in FILE_EXTENSIONS):
+                download_links.append(href)
+
+        log_message(f"Найдено {len(download_links)} ссылок для скачивания")
+
+        for i, link in enumerate(download_links[:5]):
+            log_message(f"Обрабатываем ссылку {i+1}/{len(download_links)}: {link}")
+            try:
+                driver.get(link)
+                time.sleep(DELAY)
+            except Exception as e:
+                log_message(f"Ошибка при скачивании {link}: {e}")
+
+        log_message("Задача выполнена успешно!")
+    except Exception as e:
+        log_message(f"Ошибка при выполнении задачи: {e}")
+    finally:
+        if driver:
+            try:
+                driver.quit()
+                log_message("Браузер закрыт")
+            except Exception:
+                pass
+
+if not HEADLESS:
+    # Создание главного окна
+    root = tk.Tk()
+    root.title("Настройки скачивания файлов")
+    root.geometry("800x900")
+
+    # Текстовый блок для логов
+    log_frame = tk.Frame(root)
+    log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+    log_label = tk.Label(log_frame, text="Логи выполнения:")
+    log_label.pack(anchor=tk.W)
+
+    log_text = scrolledtext.ScrolledText(log_frame, width=80, height=10, wrap=tk.WORD)
+    log_text.pack(fill=tk.BOTH, expand=True)
+
+    # Форма настроек
+    settings_frame = tk.Frame(root)
+    settings_frame.pack(fill=tk.X, padx=10, pady=5)
 
 # Создание полей ввода
-fields = [
-    ("Путь к chromedriver:", "entry_chromedriver_path"),
+    fields = [
+        ("Путь к chromedriver:", "entry_chromedriver_path"),
     ("URL страницы для парсинга:", "entry_start_url"),
     ("Путь к файлу с куками:", "entry_cookies_path"),
     ("Папка для скачивания файлов:", "entry_download_folder"),
@@ -405,63 +512,66 @@ fields = [
     ("Логин:", "entry_login"),
     ("Пароль:", "entry_password"),
     ("Задержка между переходами (сек):", "entry_delay")
-]
+    ]
 
-for label_text, entry_name in fields:
-    label = tk.Label(settings_frame, text=label_text)
-    label.pack(anchor=tk.W, pady=(5, 0))
-    
-    if entry_name == "entry_password":
-        entry = tk.Entry(settings_frame, show="*", width=60)
-    else:
-        entry = tk.Entry(settings_frame, width=60)
-    
-    entry.pack(fill=tk.X, pady=(0, 5))
-    globals()[entry_name] = entry
+    for label_text, entry_name in fields:
+        label = tk.Label(settings_frame, text=label_text)
+        label.pack(anchor=tk.W, pady=(5, 0))
+
+        if entry_name == "entry_password":
+            entry = tk.Entry(settings_frame, show="*", width=60)
+        else:
+            entry = tk.Entry(settings_frame, width=60)
+
+        entry.pack(fill=tk.X, pady=(0, 5))
+        globals()[entry_name] = entry
 
 # Режим работы
-mode_frame = tk.Frame(settings_frame)
-mode_frame.pack(fill=tk.X, pady=5)
+    mode_frame = tk.Frame(settings_frame)
+    mode_frame.pack(fill=tk.X, pady=5)
 
-tk.Label(mode_frame, text="Режим работы:").pack(anchor=tk.W)
-var_mode = tk.StringVar(value="sequential")
-tk.Radiobutton(mode_frame, text="Последовательно", variable=var_mode, value="sequential").pack(anchor=tk.W)
-tk.Radiobutton(mode_frame, text="Параллельно", variable=var_mode, value="parallel").pack(anchor=tk.W)
+    tk.Label(mode_frame, text="Режим работы:").pack(anchor=tk.W)
+    var_mode = tk.StringVar(value="sequential")
+    tk.Radiobutton(mode_frame, text="Последовательно", variable=var_mode, value="sequential").pack(anchor=tk.W)
+    tk.Radiobutton(mode_frame, text="Параллельно", variable=var_mode, value="parallel").pack(anchor=tk.W)
 
 # Режим браузера
-browser_frame = tk.Frame(settings_frame)
-browser_frame.pack(fill=tk.X, pady=5)
+    browser_frame = tk.Frame(settings_frame)
+    browser_frame.pack(fill=tk.X, pady=5)
 
-tk.Label(browser_frame, text="Режим браузера:").pack(anchor=tk.W)
-var_browser_mode = tk.StringVar(value="headless")
-tk.Radiobutton(browser_frame, text="Без интерфейса", variable=var_browser_mode, value="headless").pack(anchor=tk.W)
-tk.Radiobutton(browser_frame, text="С интерфейсом", variable=var_browser_mode, value="display").pack(anchor=tk.W)
+    tk.Label(browser_frame, text="Режим браузера:").pack(anchor=tk.W)
+    var_browser_mode = tk.StringVar(value="headless")
+    tk.Radiobutton(browser_frame, text="Без интерфейса", variable=var_browser_mode, value="headless").pack(anchor=tk.W)
+    tk.Radiobutton(browser_frame, text="С интерфейсом", variable=var_browser_mode, value="display").pack(anchor=tk.W)
 
 # Кнопка сохранения настроек
-button_save_settings = tk.Button(settings_frame, text="Сохранить настройки", command=save_new_settings)
-button_save_settings.pack(pady=10)
+    button_save_settings = tk.Button(settings_frame, text="Сохранить настройки", command=save_new_settings)
+    button_save_settings.pack(pady=10)
 
 # Список сохранённых настроек
-list_frame = tk.Frame(root)
-list_frame.pack(fill=tk.X, padx=10, pady=5)
+    list_frame = tk.Frame(root)
+    list_frame.pack(fill=tk.X, padx=10, pady=5)
 
-tk.Label(list_frame, text="Сохранённые настройки:").pack(anchor=tk.W)
-settings_listbox = tk.Listbox(list_frame, height=5)
-settings_listbox.pack(fill=tk.X, pady=5)
+    tk.Label(list_frame, text="Сохранённые настройки:").pack(anchor=tk.W)
+    settings_listbox = tk.Listbox(list_frame, height=5)
+    settings_listbox.pack(fill=tk.X, pady=5)
 
 # Кнопка запуска
-button_start = tk.Button(root, text="Запустить работу", command=start_download_task, bg="green", fg="white")
-button_start.pack(pady=10)
+    button_start = tk.Button(root, text="Запустить работу", command=start_download_task, bg="green", fg="white")
+    button_start.pack(pady=10)
 
 # Инициализация
-log_message("Программа запущена")
-if CHROMEDRIVER_AUTO_INSTALL:
-    log_message("Используется автоматическое управление ChromeDriver")
+    log_message("Программа запущена")
+    if CHROMEDRIVER_AUTO_INSTALL:
+        log_message("Используется автоматическое управление ChromeDriver")
+    else:
+        log_message("Используется ручное управление ChromeDriver")
+
+    load_current_settings()
+    update_settings_listbox()
+
+    # Запуск главного цикла
+    root.mainloop()
 else:
-    log_message("Используется ручное управление ChromeDriver")
-
-load_current_settings()
-update_settings_listbox()
-
-# Запуск главного цикла
-root.mainloop()
+    # В режиме без графики запускаем сразу выполнение
+    run_headless()
