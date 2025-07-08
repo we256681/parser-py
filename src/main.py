@@ -440,6 +440,7 @@ def run_headless():
 
         log_message("Начинаем парсинг страницы...")
 
+
         word_btn = find_word_download_button(driver)
         if word_btn:
             log_message("Найдена кнопка скачивания Word")
