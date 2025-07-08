@@ -2,15 +2,26 @@
 
 import json
 import os
+import shutil
 
 SETTINGS_FILE = "settings.json"
 
 # Функция для загрузки настроек из файла
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
-        with open(SETTINGS_FILE, 'r') as file:
-            return json.load(file)
-    return []
+        try:
+            with open(SETTINGS_FILE, 'r', encoding='utf-8') as file:
+                data = json.load(file)
+                # Убеждаемся, что данные - это список
+                if isinstance(data, list):
+                    return data
+                elif isinstance(data, dict):
+                    return [data]  # Конвертируем словарь в список
+                else:
+                    return []
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            print(f"Ошибка при загрузке настроек: {e}")
+            return []
 
 # Функция для сохранения настроек в файл
 def save_settings(settings):
