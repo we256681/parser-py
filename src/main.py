@@ -2,7 +2,7 @@
 
 import tkinter as tk
 from tkinter import messagebox
-from settings_manager import save_settings, load_settings
+from settings_manager import save_settings, load_settings, load_settings_by_name
 from config import CHROMEDRIVER_PATH, START_URL, COOKIES_PATH, DOWNLOAD_FOLDER, MAX_WORKERS, FILE_EXTENSIONS, LOGIN, PASSWORD, DELAY, MODE
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -13,6 +13,7 @@ import json
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
+from concurrent.futures import ThreadPoolExecutor
 
 # Функция для авторизации
 def login(driver, login, password):
@@ -90,34 +91,55 @@ def save_new_settings():
 def load_current_settings():
     settings = load_settings()
     
+    # Если настройки существуют, используем первую настройку из списка
+    if settings:
+        current_settings = settings[0]  # Берем первую настройку из списка
+    else:
+        current_settings = {}
+    
     entry_chromedriver_path.delete(0, tk.END)
-    entry_chromedriver_path.insert(0, settings.get("CHROMEDRIVER_PATH", "path/to/chromedriver"))
+    entry_chromedriver_path.insert(0, current_settings.get("CHROMEDRIVER_PATH", "path/to/chromedriver"))
     
     entry_start_url.delete(0, tk.END)
-    entry_start_url.insert(0, settings.get("START_URL", "http://example.com"))
+    entry_start_url.insert(0, current_settings.get("START_URL", "http://example.com"))
     
     entry_cookies_path.delete(0, tk.END)
-    entry_cookies_path.insert(0, settings.get("COOKIES_PATH", "cookies/cookies.json"))
+    entry_cookies_path.insert(0, current_settings.get("COOKIES_PATH", "cookies/cookies.json"))
     
     entry_download_folder.delete(0, tk.END)
-    entry_download_folder.insert(0, settings.get("DOWNLOAD_FOLDER", "downloads"))
+    entry_download_folder.insert(0, current_settings.get("DOWNLOAD_FOLDER", "downloads"))
     
     entry_max_workers.delete(0, tk.END)
-    entry_max_workers.insert(0, settings.get("MAX_WORKERS", 4))
+    entry_max_workers.insert(0, current_settings.get("MAX_WORKERS", 4))
     
     entry_file_extensions.delete(0, tk.END)
-    entry_file_extensions.insert(0, ', '.join(settings.get("FILE_EXTENSIONS", ['.docx', '.pdf', '.xlsx'])))
+    entry_file_extensions.insert(0, ', '.join(current_settings.get("FILE_EXTENSIONS", ['.docx', '.pdf', '.xlsx'])))
     
     entry_login.delete(0, tk.END)
-    entry_login.insert(0, settings.get("LOGIN", ""))
+    entry_login.insert(0, current_settings.get("LOGIN", ""))
     
     entry_password.delete(0, tk.END)
-    entry_password.insert(0, settings.get("PASSWORD", ""))
+    entry_password.insert(0, current_settings.get("PASSWORD", ""))
     
     entry_delay.delete(0, tk.END)
-    entry_delay.insert(0, settings.get("DELAY", 2))
+    entry_delay.insert(0, current_settings.get("DELAY", 2))
     
-    var_mode.set(settings.get("MODE", "sequential"))
+    var_mode.set(current_settings.get("MODE", "sequential"))
+
+# Функция для запуска работы программы
+def start_download_task():
+    selected_name = settings_listbox.get(tk.ACTIVE)
+    
+    if selected_name:
+        settings = load_settings_by_name(selected_name)
+        if settings:
+            logging.info(f"Загружены настройки: {selected_name}")
+            # Здесь добавьте вашу основную логику скачивания
+            # Например, выполнение работы с Selenium с текущими настройками
+        else:
+            messagebox.showerror("Ошибка", "Не удалось загрузить настройки.")
+    else:
+        messagebox.showerror("Ошибка", "Выберите настройки из списка.")
 
 # Главный интерфейс
 root = tk.Tk()
@@ -190,7 +212,16 @@ radio_parallel.pack(pady=5)
 button_save_settings = tk.Button(root, text="Сохранить настройки", command=save_new_settings)
 button_save_settings.pack(pady=10)
 
+# Список сохранённых настроек
+settings_listbox = tk.Listbox(root, height=5)
+settings_listbox.pack(pady=5)
+
+# Кнопка для запуска работы
+button_start = tk.Button(root, text="Запустить работу", command=start_download_task)
+button_start.pack(pady=10)
+
 # Загрузка сохранённых настроек при старте
 load_current_settings()
 
 root.mainloop()
+

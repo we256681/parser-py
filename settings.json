@@ -1,15 +1,32 @@
-{
-    "CHROMEDRIVER_PATH": "path/to/chromedriver",
-    "START_URL": "https://cloud.consultant.ru/cloud/cgi/online.cgi?req=doc&cacheid=B172E390A32D79ABA74572130971EE35&mode=docs&base=PKV&n=1034&BASENODE=IiIiMSwzMjgxOCwzMjgxOCIiLCIiMiwzMDEsRklOUFVUIiIsIiIyLDMsRklOIiIi&rnd=0.8157163640945998#x0LdKqUkDdtsjNIm",
-    "COOKIES_PATH": "cookies/cookiesUbuntu33-Pro_cloudconsultant.json",
-    "DOWNLOAD_FOLDER": "downloads",
-    "MAX_WORKERS": 1,
-    "FILE_EXTENSIONS": [
-        ".docx",
-        " .doc"
-    ],
-    "LOGIN": "1142972#amur@kolyasnikov-n",
-    "PASSWORD": "ebJPsKXb",
-    "DELAY": 5,
-    "MODE": "sequential"
-}
+[
+    {
+        "CHROMEDRIVER_PATH": "path/to/chromedriver",
+        "START_URL": "https://cloud.consultant.ru/cloud/cgi/online.cgi?req=doc&cacheid=B172E390A32D79ABA74572130971EE35&mode=docs&base=PKV&n=1034&BASENODE=IiIiMSwzMjgxOCwzMjgxOCIiLCIiMiwzMDEsRklOUFVUIiIsIiIyLDMsRklOIiIi&rnd=0.8157163640945998#x0LdKqUkDdtsjNIm",
+        "COOKIES_PATH": "cookies/cookiesUbuntu33-Pro_cloudconsultant.json",
+        "DOWNLOAD_FOLDER": "downloads",
+        "MAX_WORKERS": 1,
+        "FILE_EXTENSIONS": [
+            ".docx",
+            ".doc"
+        ],
+        "LOGIN": "1142972#amur@kolyasnikov-n",
+        "PASSWORD": "ebJPsKXb",
+        "DELAY": 5,
+        "MODE": "sequential"
+    },
+    {
+        "CHROMEDRIVER_PATH": "path/to/chromedriver",
+        "START_URL": "https://cloud.consultant.ru/cloud/cgi/online.cgi?req=doc&cacheid=B172E390A32D79ABA74572130971EE35&mode=docs&base=PKV&n=1034&BASENODE=IiIiMSwzMjgxOCwzMjgxOCIiLCIiMiwzMDEsRklOUFVUIiIsIiIyLDMsRklOIiIi&rnd=0.8157163640945998#x0LdKqUkDdtsjNIm",
+        "COOKIES_PATH": "cookies/cookiesUbuntu33-Pro_cloudconsultant.json",
+        "DOWNLOAD_FOLDER": "downloads",
+        "MAX_WORKERS": 1,
+        "FILE_EXTENSIONS": [
+            ".docx",
+            " .doc"
+        ],
+        "LOGIN": "1142972#amur@kolyasnikov-n",
+        "PASSWORD": "ebJPsKXb",
+        "DELAY": 5,
+        "MODE": "sequential"
+    }
+]
