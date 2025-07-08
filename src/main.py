@@ -3,6 +3,7 @@
 import tkinter as tk
 from tkinter import messagebox, scrolledtext
 from settings_manager import save_settings, load_settings, load_settings_by_name
+
 from config import (
     CHROMEDRIVER_PATH,
     START_URL,
@@ -15,6 +16,7 @@ from config import (
     DELAY,
     MODE,
 )
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -36,8 +38,10 @@ if not os.environ.get("DISPLAY"):
     HEADLESS = True
 
 
+
 class DummyVar:
     """Замена для tkinter.StringVar в headless-режиме"""
+
 
     def __init__(self, value=""):
         self.value = value
@@ -58,10 +62,12 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(message)s")
 
 def log_message(message):
     """Функция для вывода сообщения в интерфейс"""
+
     if not HEADLESS and "log_text" in globals():
         log_text.insert(tk.END, message + "\n")
         log_text.yview(tk.END)  # Прокручиваем текстовый блок вниз
     print(message)  # Дублируем в консоль
+
 
 
 def find_word_download_button(driver):
@@ -69,6 +75,7 @@ def find_word_download_button(driver):
     try:
         candidates = driver.find_elements(By.XPATH, "//button|//a")
         for elem in candidates:
+
             texts = [
                 (elem.text or "").lower(),
                 (elem.get_attribute("title") or "").lower(),
@@ -81,11 +88,11 @@ def find_word_download_button(driver):
                 or href.endswith(".docx")
                 or ".docx" in href
             ):
+
                 return elem
     except Exception as e:
         log_message(f"Ошибка при поиске кнопки Word: {e}")
     return None
-
 
 def get_chrome_driver():
     """Функция для создания Chrome WebDriver с правильными настройками"""
@@ -123,9 +130,11 @@ def get_chrome_driver():
     try:
         chromedriver_path = CHROMEDRIVER_PATH
         if CHROMEDRIVER_AUTO_INSTALL:
+
             log_message(
                 "Используется chromedriver_binary для автоматического управления драйвером"
             )
+
             driver = webdriver.Chrome(options=chrome_options)
         else:
             if os.path.exists(chromedriver_path):
@@ -140,10 +149,12 @@ def get_chrome_driver():
                     service = Service(system_chromedriver)
                     driver = webdriver.Chrome(service=service, options=chrome_options)
                 else:
+
                     log_message(
                         "Используется Selenium Manager для загрузки ChromeDriver"
                     )
                     driver = webdriver.Chrome(options=chrome_options)
+
 
         log_message("ChromeDriver успешно инициализирован")
         return driver
@@ -157,9 +168,11 @@ def get_chrome_driver():
             from webdriver_manager.chrome import ChromeDriverManager
             from webdriver_manager.core.os_manager import ChromeType
 
+
             service = Service(
                 ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
             )
+
             driver = webdriver.Chrome(service=service, options=chrome_options)
             log_message("ChromeDriver успешно инициализирован через webdriver-manager")
             return driver
@@ -501,6 +514,7 @@ def run_headless():
     selected_settings = settings[0]
     log_message(f"Загружены настройки: {selected_settings.get('LOGIN', 'Без логина')}")
 
+
     CHROMEDRIVER_PATH = selected_settings.get("CHROMEDRIVER_PATH", CHROMEDRIVER_PATH)
     START_URL = selected_settings.get("START_URL", START_URL)
     COOKIES_PATH = selected_settings.get("COOKIES_PATH", COOKIES_PATH)
@@ -511,6 +525,7 @@ def run_headless():
     PASSWORD = selected_settings.get("PASSWORD", PASSWORD)
     DELAY = selected_settings.get("DELAY", DELAY)
     MODE = selected_settings.get("MODE", MODE)
+
 
     if not os.path.exists(DOWNLOAD_FOLDER):
         os.makedirs(DOWNLOAD_FOLDER)
@@ -524,6 +539,7 @@ def run_headless():
         check_and_login(driver, LOGIN, PASSWORD)
 
         log_message("Начинаем парсинг страницы...")
+
 
         word_btn = find_word_download_button(driver)
         if word_btn:
@@ -587,6 +603,7 @@ if not HEADLESS:
     settings_frame = tk.Frame(root)
     settings_frame.pack(fill=tk.X, padx=10, pady=5)
 
+
     # Создание полей ввода
     fields = [
         ("Путь к chromedriver:", "entry_chromedriver_path"),
@@ -598,6 +615,7 @@ if not HEADLESS:
         ("Логин:", "entry_login"),
         ("Пароль:", "entry_password"),
         ("Задержка между переходами (сек):", "entry_delay"),
+
     ]
 
     for label_text, entry_name in fields:
@@ -613,11 +631,13 @@ if not HEADLESS:
         globals()[entry_name] = entry
 
     # Режим работы
+
     mode_frame = tk.Frame(settings_frame)
     mode_frame.pack(fill=tk.X, pady=5)
 
     tk.Label(mode_frame, text="Режим работы:").pack(anchor=tk.W)
     var_mode = tk.StringVar(value="sequential")
+
     tk.Radiobutton(
         mode_frame, text="Последовательно", variable=var_mode, value="sequential"
     ).pack(anchor=tk.W)
@@ -626,11 +646,13 @@ if not HEADLESS:
     ).pack(anchor=tk.W)
 
     # Режим браузера
+
     browser_frame = tk.Frame(settings_frame)
     browser_frame.pack(fill=tk.X, pady=5)
 
     tk.Label(browser_frame, text="Режим браузера:").pack(anchor=tk.W)
     var_browser_mode = tk.StringVar(value="headless")
+
     tk.Radiobutton(
         browser_frame,
         text="Без интерфейса",
@@ -648,12 +670,14 @@ if not HEADLESS:
     button_save_settings.pack(pady=10)
 
     # Список сохранённых настроек
+
     list_frame = tk.Frame(root)
     list_frame.pack(fill=tk.X, padx=10, pady=5)
 
     tk.Label(list_frame, text="Сохранённые настройки:").pack(anchor=tk.W)
     settings_listbox = tk.Listbox(list_frame, height=5)
     settings_listbox.pack(fill=tk.X, pady=5)
+
 
     # Кнопка запуска
     button_start = tk.Button(
@@ -666,6 +690,7 @@ if not HEADLESS:
     button_start.pack(pady=10)
 
     # Инициализация
+
     log_message("Программа запущена")
     if CHROMEDRIVER_AUTO_INSTALL:
         log_message("Используется автоматическое управление ChromeDriver")
