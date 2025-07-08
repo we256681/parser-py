@@ -1,7 +1,7 @@
 # main.py
 
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, scrolledtext
 from settings_manager import save_settings, load_settings, load_settings_by_name
 from config import CHROMEDRIVER_PATH, START_URL, COOKIES_PATH, DOWNLOAD_FOLDER, MAX_WORKERS, FILE_EXTENSIONS, LOGIN, PASSWORD, DELAY, MODE
 from selenium import webdriver
@@ -15,19 +15,28 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 from concurrent.futures import ThreadPoolExecutor
 
+# Настройка логирования для отображения логов в интерфейсе
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s')
+
+def log_message(message):
+    """Функция для вывода сообщения в интерфейс"""
+    log_text.insert(tk.END, message + '\n')
+    log_text.yview(tk.END)  # Прокручиваем текстовый блок вниз
+
 # Функция для авторизации
 def login(driver, login, password):
     try:
         # Пример авторизации через поля ввода (имя пользователя и пароль)
+        log_message("Авторизация...")
         username_field = driver.find_element(By.NAME, "username")
         password_field = driver.find_element(By.NAME, "password")
         username_field.send_keys(login)
         password_field.send_keys(password)
         password_field.send_keys(Keys.RETURN)
         time.sleep(3)  # Ждем загрузку страницы после авторизации
-        logging.info("Авторизация прошла успешно.")
+        log_message("Авторизация прошла успешно.")
     except Exception as e:
-        logging.error(f"Ошибка при авторизации: {e}")
+        log_message(f"Ошибка при авторизации: {e}")
         messagebox.showerror("Ошибка", "Не удалось авторизоваться.")
 
 # Функция для выхода из аккаунта
@@ -36,14 +45,15 @@ def logout(driver):
         logout_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Logout')]")  # XPath для кнопки выхода
         ActionChains(driver).move_to_element(logout_button).click().perform()
         time.sleep(2)  # Ждем, пока выйдем из аккаунта
-        logging.info("Выход из аккаунта выполнен.")
+        log_message("Выход из аккаунта выполнен.")
     except Exception as e:
-        logging.error(f"Ошибка при выходе из аккаунта: {e}")
+        log_message(f"Ошибка при выходе из аккаунта: {e}")
 
 # Функция для авторизации, если куки не действуют
 def check_and_login(driver, login, password):
     # Попробуем пройти по страницам, если запросит пароль - авторизуемся
     try:
+        log_message(f"Пытаемся зайти на страницу: {START_URL}")
         driver.get(START_URL)
         time.sleep(2)
         
@@ -52,9 +62,9 @@ def check_and_login(driver, login, password):
             login(driver, login, password)
             driver.get(START_URL)  # Перезагружаем страницу
         else:
-            logging.info("Куки успешно использованы, авторизация не требуется.")
+            log_message("Куки успешно использованы, авторизация не требуется.")
     except Exception as e:
-        logging.error(f"Ошибка при проверке авторизации: {e}")
+        log_message(f"Ошибка при проверке авторизации: {e}")
         messagebox.showerror("Ошибка", "Не удалось авторизоваться.")
 
 # Функция для сохранения новых настроек
@@ -83,7 +93,8 @@ def save_new_settings():
             delay,
             mode
         )
-        messagebox.showinfo("Информация", "Настройки успешно сохранены.")
+        log_message("Настройки успешно сохранены.")
+        update_settings_listbox()  # Обновление списка настроек после сохранения
     else:
         messagebox.showerror("Ошибка", "Все поля должны быть заполнены!")
 
@@ -126,6 +137,13 @@ def load_current_settings():
     
     var_mode.set(current_settings.get("MODE", "sequential"))
 
+# Функция для обновления списка настроек в интерфейсе
+def update_settings_listbox():
+    settings = load_settings()
+    settings_listbox.delete(0, tk.END)  # Очистка списка перед добавлением новых
+    for setting in settings:
+        settings_listbox.insert(tk.END, setting.get("LOGIN", "Без логина"))  # Добавление логина в список
+
 # Функция для запуска работы программы
 def start_download_task():
     selected_name = settings_listbox.get(tk.ACTIVE)
@@ -133,9 +151,36 @@ def start_download_task():
     if selected_name:
         settings = load_settings_by_name(selected_name)
         if settings:
-            logging.info(f"Загружены настройки: {selected_name}")
-            # Здесь добавьте вашу основную логику скачивания
-            # Например, выполнение работы с Selenium с текущими настройками
+            log_message(f"Загружены настройки: {selected_name}")
+            try:
+                # Настройка браузера
+                chrome_options = Options()
+                
+                # Проверяем, выбран ли режим "headless" (фоновый режим)
+                if var_browser_mode.get() == "headless":
+                    chrome_options.add_argument("--headless")  # Без графического интерфейса
+                    log_message("Запуск браузера в фоновом режиме.")
+                else:
+                    log_message("Запуск браузера с графическим интерфейсом.")
+                
+                service = Service(CHROMEDRIVER_PATH)
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+                
+                # Авторизация
+                check_and_login(driver, settings['LOGIN'], settings['PASSWORD'])
+                
+                # Пример выполнения задачи (переходы по ссылкам)
+                for i in range(5):  # Пример переходов
+                    driver.get(f"{START_URL}/page{i}")
+                    log_message(f"Перешли на страницу {START_URL}/page{i}")
+                    time.sleep(DELAY)
+                
+                # Завершаем работу
+                logout(driver)
+                driver.quit()
+            except Exception as e:
+                log_message(f"Ошибка при запуске работы: {e}")
+                messagebox.showerror("Ошибка", f"Не удалось запустить работу: {e}")
         else:
             messagebox.showerror("Ошибка", "Не удалось загрузить настройки.")
     else:
@@ -144,6 +189,10 @@ def start_download_task():
 # Главный интерфейс
 root = tk.Tk()
 root.title("Настройки скачивания файлов")
+
+# Добавление текстового блока для логов
+log_text = scrolledtext.ScrolledText(root, width=60, height=15, wrap=tk.WORD)
+log_text.pack(pady=10)
 
 # Форма для редактирования всех настроек
 label_chromedriver_path = tk.Label(root, text="Путь к chromedriver:")
@@ -209,6 +258,15 @@ radio_parallel = tk.Radiobutton(root, text="Параллельно", variable=va
 radio_sequential.pack(pady=5)
 radio_parallel.pack(pady=5)
 
+label_browser_mode = tk.Label(root, text="Режим браузера:")
+label_browser_mode.pack(pady=5)
+
+var_browser_mode = tk.StringVar(value="headless")
+radio_headless = tk.Radiobutton(root, text="Без интерфейса", variable=var_browser_mode, value="headless")
+radio_display = tk.Radiobutton(root, text="С интерфейсом", variable=var_browser_mode, value="display")
+radio_headless.pack(pady=5)
+radio_display.pack(pady=5)
+
 button_save_settings = tk.Button(root, text="Сохранить настройки", command=save_new_settings)
 button_save_settings.pack(pady=10)
 
@@ -223,5 +281,16 @@ button_start.pack(pady=10)
 # Загрузка сохранённых настроек при старте
 load_current_settings()
 
-root.mainloop()
+# Обновление списка сохранённых настроек
+update_settings_listbox()
 
+root.mainloop()
+# Закрытие программы
+logging.shutdown()
+log_message("Программа завершена.")
+messagebox.showinfo("Завершение", "Программа завершена. Логи сохранены в текстовом блоке.")
+root.destroy()
+# Сохранение логов в файл
+with open("logs.txt", "w") as log_file:
+    log_file.write(log_text.get("1.0", tk.END))  # Сохраняем весь текст из текстового блока
+log_message("Логи сохранены в файл logs.txt.")
